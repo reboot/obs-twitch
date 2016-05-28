@@ -93,7 +93,7 @@ void Viewers::setViewers(int viewers) {
 
 extern "C" void viewers_init(void)
 {
-    OBSApp *app = dynamic_cast<OBSApp *>(QCoreApplication::instance());
+    OBSApp *app = App();
     QMainWindow *win = app->GetMainWindow();
     QStatusBar *statusBar = win->statusBar();
 
