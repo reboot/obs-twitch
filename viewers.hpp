@@ -1,19 +1,30 @@
+#pragma once
+
 #include <QLabel>
+
+#include <util/config-file.h>
+
+#include "twitch.hpp"
 
 class Viewers : public QLabel {
 
     Q_OBJECT
 
 public:
-    Viewers();
+    Viewers(Twitch *twitch);
 
     void setViewers(int viewers);
 
-public slots:
-    void startAPIRequest();
-
 private:
-    void finishedAPIRequest(const QString &text, const QString &error);
-    void scheduleAPIRequest();
+    Twitch *twitch;
+
+    config_t *config;
+
+    void scheduleStreamsRequest();
+
+private slots:
+    void startStreamsRequest();
+
+    void streamsUpdated(const char *channel);
 
 };

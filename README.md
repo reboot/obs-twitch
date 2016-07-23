@@ -22,5 +22,19 @@ Build
 To build the plugin you have to integrate it into the build of OBS
 Studio. Check out the repository into a subdirectory of the plugins
 folder in the OBS Studio source and add it to the ` CMakeLists.txt` .
-Before you start the build edit the `config.h` and change the Twitch
-channel to your own.
+
+Configuration
+-------------
+
+The configuration for the plugin is stored in the OBS profile. Edit the
+`basic.ini` for the profile in the OBS configuration folder. Add the
+following section to the file
+
+    [Twitch]
+    channel=...
+
+The section can contain the following parameters
+
+Parameter | Required | Description | Example
+----------|----------|-------------|--------
+channel | Yes | The name of the channel for API requests | reboottv

@@ -1,7 +1,7 @@
-#include <QCoreApplication>
-#include <QStatusBar>
 #include <QLabel>
 #include <QTimer>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 #include <string.h>
 #include <jansson.h>
@@ -12,71 +12,72 @@
 #include "remote-text.hpp"
 #include "qt-wrappers.hpp"
 
-#include "config.h"
 #include "viewers.hpp"
+#include "configuration.hpp"
 
-Viewers::Viewers() : QLabel() {
+Viewers::Viewers(Twitch *twitch) : QLabel() {
+    this->twitch = twitch;
+
     setAlignment(Qt::AlignRight);
     setAlignment(Qt::AlignVCenter);
     setIndent(20);
 
     setViewers(-1);
 
-    scheduleAPIRequest();
+    scheduleStreamsRequest();
+
+    API *api = twitch->getAPI();
+    connect(api, SIGNAL(streamsUpdated(const char *)), this, SLOT(streamsUpdated(const char *)));
 }
 
-void Viewers::scheduleAPIRequest() {
-    QTimer::singleShot(60000, this, SLOT(startAPIRequest()));
+void Viewers::scheduleStreamsRequest() {
+    QTimer::singleShot(60000, this, SLOT(startStreamsRequest()));
 }
 
-void Viewers::startAPIRequest() {
+void Viewers::startStreamsRequest() {
     blog(LOG_DEBUG, "Starting Twitch API request");
 
-    std::string url;
-    url = "https://api.twitch.tv/kraken/streams?channel=";
-    url += TWITCH_CHANNEL;
+    const char *channel = twitch->getChannel();
+    if (channel == NULL) {
+        json_t *user = twitch->getAPI()->getUser();
+        if (user == NULL) {
+            scheduleStreamsRequest();
+            return;
+        }
 
-    RemoteTextThread *thread = new RemoteTextThread(url);
-    connect(thread, &RemoteTextThread::Result, this, &Viewers::finishedAPIRequest);
-    thread->start();
+        json_t *name = json_object_get(user, "name");
+        if (name == NULL) {
+            scheduleStreamsRequest();
+            return;
+        }
+
+        channel = json_string_value(name);
+    }
+
+    API *api = twitch->getAPI();
+    api->updateStreams(channel);
 }
 
-void Viewers::finishedAPIRequest(const QString &text, const QString &error) {
-    if (text.isEmpty()) {
-        blog(LOG_WARNING, "Twitch API failed: %s", QT_TO_UTF8(error));
-        scheduleAPIRequest();
-        return;
-    }
-
-    blog(LOG_DEBUG, "Twitch API response: %s", QT_TO_UTF8(text));
-
-    json_t *root;
-    json_error_t json_error;
-
-    root = json_loads(QT_TO_UTF8(text), 0, &json_error);
-    if(!root)
-    {
-        blog(LOG_ERROR, "error: on line %d: %s\n", json_error.line, json_error.text);
-        scheduleAPIRequest();
-        return;
-    }
-
-    json_t *value;
+void Viewers::streamsUpdated(const char *channel) {
     int viewers = -1;
 
-    value = json_object_get(root, "streams");
-    if (value != NULL)
-        value = json_array_get(value, 0);
-    if (value != NULL)
-        value = json_object_get(value, "viewers");
-    if (value != NULL)
-        viewers = json_integer_value(value);
+    API *api = twitch->getAPI();
+    json_t *root = api->getStreams(channel);
+    if(root)
+    {
+        json_t *value;
+
+        value = json_object_get(root, "stream");
+        if (value != NULL)
+            value = json_object_get(value, "viewers");
+        if (value != NULL)
+            viewers = json_integer_value(value);
+    }
+
     blog(LOG_INFO, "Viewers: %d", viewers);
     setViewers(viewers);
 
-    json_decref(root);
-
-    scheduleAPIRequest();
+    scheduleStreamsRequest();
 
     return;
 }
@@ -90,14 +91,4 @@ void Viewers::setViewers(int viewers) {
     else
         text += "-";
     setText(text);
-}
-
-extern "C" void viewers_init(void)
-{
-    OBSApp *app = App();
-    QMainWindow *win = app->GetMainWindow();
-    QStatusBar *statusBar = win->statusBar();
-
-    Viewers *viewers = new Viewers();
-    statusBar->addPermanentWidget(viewers);
 }

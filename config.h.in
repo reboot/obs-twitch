@@ -1,0 +1,3 @@
+#pragma once
+
+#cmakedefine TWITCH_CLIENT_ID "@TWITCH_CLIENT_ID@"
