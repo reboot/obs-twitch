@@ -17,6 +17,7 @@
 
 Viewers::Viewers() : QLabel() {
     setAlignment(Qt::AlignRight);
+    setAlignment(Qt::AlignVCenter);
     setIndent(20);
 
     setViewers(-1);
